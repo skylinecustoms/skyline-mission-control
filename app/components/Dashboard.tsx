@@ -6,7 +6,7 @@ import { formatTime, getPollingIntervalMs, getPollingWindow } from "../lib/time"
 type Task = {
   id: string;
   name: string;
-  status: "backlog" | "active" | "review" | "complete";
+  status: "backlog" | "active" | "complete";
   type: "automation" | "task" | "system";
   priority: "low" | "medium" | "high";
   nextRun?: string;
@@ -51,14 +51,6 @@ const columnConfig = [
     icon: "⚡",
     bgClass: "bg-mc-ice/10",
     borderClass: "border-mc-ice/20",
-  },
-  {
-    id: "review" as const,
-    title: "Monitoring",
-    subtitle: "Health Check",
-    icon: "🔍",
-    bgClass: "bg-mc-amber/10",
-    borderClass: "border-mc-amber/20",
   },
   {
     id: "complete" as const,
@@ -143,17 +135,7 @@ export default function Dashboard() {
       });
     });
 
-    // System health items go to "review"
-    data.systemHealth?.forEach((health, index) => {
-      transformedTasks.push({
-        id: `health-${index}`,
-        name: health.name,
-        status: "review",
-        type: "system",
-        priority: health.status === "issue" ? "high" : health.status === "warning" ? "medium" : "low",
-        healthStatus: health.status,
-      });
-    });
+    // System health items will be handled separately in monitoring section
 
     // Completed tasks go to "complete"
     data.completedToday?.forEach((task, index) => {
@@ -290,7 +272,48 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Live Integrations Footer */}
+        {/* System Monitoring */}
+        {data?.systemHealth && data.systemHealth.length > 0 && (
+          <section className="glass-card rounded-3xl p-4 md:p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🔍</span>
+                <div>
+                  <h2 className="text-xl font-semibold uppercase tracking-[0.15em] text-white">
+                    System Monitoring
+                  </h2>
+                  <p className="text-xs uppercase tracking-[0.2em] text-muted">
+                    Health Check Status
+                  </p>
+                </div>
+              </div>
+              <span className="bg-mc-amber/15 text-mc-amber text-sm font-medium px-3 py-1 rounded-full">
+                {data.systemHealth.length}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {data.systemHealth.map((item, index) => (
+                <div key={`health-${index}`} className={`glass-card rounded-2xl p-4 border-l-4 ${
+                  item.status === "issue" ? "border-l-mc-ember" : 
+                  item.status === "warning" ? "border-l-mc-amber" : 
+                  "border-l-mc-emerald"
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className={`status-dot ${statusStyles[item.status]}`} />
+                      <span className="text-base font-medium text-white">{item.name}</span>
+                    </div>
+                    <span className="text-lg">
+                      {item.status === "issue" ? "🔥" : item.status === "warning" ? "⚠️" : "✅"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Live Integrations */}
         {data?.integrationNotes && Object.keys(data.integrationNotes).length > 0 && (
           <section className="glass-card rounded-3xl p-4 md:p-6 text-sm text-white/80">
             <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -315,7 +338,7 @@ export default function Dashboard() {
         )}
 
         <footer className="flex flex-col items-start gap-2 text-xs text-muted md:flex-row md:items-center md:justify-between">
-          <span>Swipe left/right to navigate kanban board • Touch-optimized for mobile</span>
+          <span>Swipe left/right: Scheduled → Running → Complete • Touch-optimized</span>
           <span>Automation updates routed through Haiku for cost efficiency</span>
         </footer>
       </div>
