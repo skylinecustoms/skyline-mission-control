@@ -240,14 +240,14 @@ export default function Dashboard() {
         </header>
 
         {/* Kanban Board */}
-        <section className="flex-1">
-          <div className="flex flex-col gap-4 md:flex-row md:gap-6 md:overflow-x-auto">
+        <section className="flex-1 overflow-hidden">
+          <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide touch-scroll px-4 -mx-4 md:px-0 md:mx-0">
             {columnConfig.map((column) => {
               const columnTasks = getTasksByStatus(column.id);
               return (
                 <div
                   key={column.id}
-                  className="flex-shrink-0 w-full md:w-80 flex flex-col"
+                  className="flex-shrink-0 w-72 min-w-72 md:w-80 md:min-w-80 flex flex-col snap-start first:ml-4 last:mr-4 md:first:ml-0 md:last:mr-0"
                 >
                   {/* Column Header */}
                   <div className={`rounded-t-3xl p-4 border-2 ${column.borderClass} ${column.bgClass}`}>
@@ -270,7 +270,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Column Body */}
-                  <div className={`flex-1 rounded-b-3xl border-2 border-t-0 ${column.borderClass} ${column.bgClass} p-4 min-h-[300px]`}>
+                  <div className={`flex-1 rounded-b-3xl border-2 border-t-0 ${column.borderClass} ${column.bgClass} p-4 min-h-[400px] max-h-[60vh] overflow-y-auto scrollbar-hide`}>
                     <div className="flex flex-col gap-3">
                       {columnTasks.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-32 text-center">
@@ -315,7 +315,7 @@ export default function Dashboard() {
         )}
 
         <footer className="flex flex-col items-start gap-2 text-xs text-muted md:flex-row md:items-center md:justify-between">
-          <span>Kanban-style mission control • Mobile-optimized for iPhone</span>
+          <span>Swipe left/right to navigate kanban board • Touch-optimized for mobile</span>
           <span>Automation updates routed through Haiku for cost efficiency</span>
         </footer>
       </div>
