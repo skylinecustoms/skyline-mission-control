@@ -1,7 +1,7 @@
 export type PollingWindow = "working" | "overnight";
 
-export const WORKING_START = 7;
-export const WORKING_END = 20;
+export const WORKING_START = 6;
+export const WORKING_END = 23;
 
 export function getPollingWindow(now: Date): PollingWindow {
   const hour = now.getHours();

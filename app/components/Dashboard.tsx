@@ -40,8 +40,8 @@ export default function Dashboard() {
 
   const heartbeatLabel = useMemo(() => {
     return windowLabel === "working"
-      ? "Working hours sync every 5 minutes"
-      : "Overnight sync every 3 hours";
+      ? "Working hours (6 AM - 11 PM): sync every 5 minutes"
+      : "Overnight (11 PM - 6 AM): sync every 3 hours";
   }, [windowLabel]);
 
   // Transform API data into kanban tasks
