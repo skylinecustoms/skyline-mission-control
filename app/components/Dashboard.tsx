@@ -1,41 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { formatTime, getPollingIntervalMs, getPollingWindow } from "../lib/time";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import type { KeyboardEvent } from "react";
+import { formatTime } from "../lib/time";
+import { useStatus } from "../hooks/useStatus";
+import KanbanColumn from "./KanbanColumn";
+import type { KanbanColumnConfig, Task } from "./kanbanTypes";
+import { statusStyles } from "./statusStyles";
 
-type Task = {
-  id: string;
-  name: string;
-  status: "backlog" | "active" | "complete";
-  type: "automation" | "task" | "system";
-  priority: "low" | "medium" | "high";
-  nextRun?: string;
-  healthStatus?: "ok" | "warning" | "issue";
-};
-
-type StatusResponse = {
-  updatedAt: string;
-  haikuModel: string;
-  activeAutomations: { name: string; nextRun: string }[];
-  currentTasks: string[];
-  completedToday: string[];
-  systemHealth: { name: string; status: "ok" | "warning" | "issue" }[];
-  integrationNotes: Record<string, string>;
-};
-
-const statusStyles: Record<"ok" | "warning" | "issue", string> = {
-  ok: "bg-mc-emerald shadow-soft-glow",
-  warning: "bg-mc-amber shadow-ember-glow",
-  issue: "bg-mc-ember shadow-ember-glow",
-};
-
-const priorityColors: Record<"low" | "medium" | "high", string> = {
-  low: "border-l-mc-ice",
-  medium: "border-l-mc-amber", 
-  high: "border-l-mc-ember",
-};
-
-const columnConfig = [
+const columnConfig: KanbanColumnConfig[] = [
   {
     id: "backlog" as const,
     title: "Scheduled",
@@ -63,42 +36,7 @@ const columnConfig = [
 ];
 
 export default function Dashboard() {
-  const [data, setData] = useState<StatusResponse | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [nextUpdate, setNextUpdate] = useState<Date | null>(null);
-  const [windowLabel, setWindowLabel] = useState<"working" | "overnight">(
-    getPollingWindow(new Date())
-  );
-
-  const loadStatus = async () => {
-    const response = await fetch("/api/status", { cache: "no-store" });
-    const payload = (await response.json()) as StatusResponse;
-    setData(payload);
-    const updated = new Date(payload.updatedAt);
-    const now = new Date();
-    const intervalMs = getPollingIntervalMs(now);
-    setLastUpdated(updated);
-    setNextUpdate(new Date(now.getTime() + intervalMs));
-    setWindowLabel(getPollingWindow(now));
-  };
-
-  useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    const schedule = async () => {
-      await loadStatus();
-      const intervalMs = getPollingIntervalMs(new Date());
-      timeoutId = setTimeout(schedule, intervalMs);
-    };
-
-    schedule();
-
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, []);
+  const { data, error, isLoading, isRefreshing, lastUpdated, nextUpdate, windowLabel, retry } = useStatus();
 
   const heartbeatLabel = useMemo(() => {
     return windowLabel === "working"
@@ -151,39 +89,140 @@ export default function Dashboard() {
     return transformedTasks;
   }, [data]);
 
-  const getTasksByStatus = (status: Task["status"]) => {
-    return tasks.filter((task) => task.status === status);
-  };
-
-  const TaskCard = ({ task }: { task: Task }) => (
-    <div className={`glass-card rounded-2xl p-4 border-l-4 ${priorityColors[task.priority]} animate-float-in`}>
-      <div className="flex items-start justify-between mb-2">
-        <h4 className="text-base font-medium text-white leading-tight">{task.name}</h4>
-        <div className="flex flex-col items-end gap-1">
-          {task.type === "automation" && (
-            <span className="text-xs px-2 py-1 rounded-full bg-mc-ice/15 text-mc-ice uppercase tracking-wider">
-              Auto
-            </span>
-          )}
-          {task.type === "system" && task.healthStatus && (
-            <span className={`status-dot ${statusStyles[task.healthStatus]}`} />
-          )}
-          {task.priority === "high" && (
-            <span className="text-xs text-mc-ember">🔥</span>
-          )}
-        </div>
-      </div>
-      {task.nextRun && (
-        <p className="text-xs text-muted mt-2">Next: {task.nextRun}</p>
-      )}
-    </div>
+  const tasksByColumn = useMemo(
+    () => columnConfig.map((column) => tasks.filter((task) => task.status === column.id)),
+    [tasks]
   );
 
+  const cardRefs = useRef<Array<Array<HTMLDivElement | null>>>([]);
+  const emptyRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const didInitialFocus = useRef(false);
+
+  const registerCardRef = useCallback(
+    (columnIndex: number, cardIndex: number) => (node: HTMLDivElement | null) => {
+      if (!cardRefs.current[columnIndex]) {
+        cardRefs.current[columnIndex] = [];
+      }
+      cardRefs.current[columnIndex][cardIndex] = node;
+    },
+    []
+  );
+
+  const registerEmptyRef = useCallback(
+    (columnIndex: number) => (node: HTMLDivElement | null) => {
+      emptyRefs.current[columnIndex] = node;
+    },
+    []
+  );
+
+  const focusCard = useCallback((columnIndex: number, cardIndex: number) => {
+    const node = cardRefs.current[columnIndex]?.[cardIndex];
+    if (node) {
+      node.focus();
+      return true;
+    }
+    return false;
+  }, []);
+
+  const focusEmpty = useCallback((columnIndex: number) => {
+    const node = emptyRefs.current[columnIndex];
+    if (node) {
+      node.focus();
+      return true;
+    }
+    return false;
+  }, []);
+
+  const focusFirstInColumn = useCallback(
+    (columnIndex: number) => {
+      if (columnIndex < 0 || columnIndex >= columnConfig.length) return false;
+      if (focusCard(columnIndex, 0)) return true;
+      return focusEmpty(columnIndex);
+    },
+    [focusCard, focusEmpty]
+  );
+
+  const focusFirstAvailable = useCallback(() => {
+    for (let index = 0; index < columnConfig.length; index += 1) {
+      if (focusFirstInColumn(index)) return true;
+    }
+    return false;
+  }, [focusFirstInColumn]);
+
+  const onCardKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>, columnIndex: number, cardIndex: number) => {
+      const columnTasks = tasksByColumn[columnIndex] ?? [];
+      switch (event.key) {
+        case "ArrowDown":
+          event.preventDefault();
+          focusCard(columnIndex, cardIndex + 1);
+          break;
+        case "ArrowUp":
+          event.preventDefault();
+          focusCard(columnIndex, cardIndex - 1);
+          break;
+        case "ArrowRight":
+          event.preventDefault();
+          focusFirstInColumn(columnIndex + 1);
+          break;
+        case "ArrowLeft":
+          event.preventDefault();
+          focusFirstInColumn(columnIndex - 1);
+          break;
+        case "Home":
+          event.preventDefault();
+          focusCard(columnIndex, 0);
+          break;
+        case "End":
+          event.preventDefault();
+          focusCard(columnIndex, Math.max(columnTasks.length - 1, 0));
+          break;
+        default:
+          break;
+      }
+    },
+    [focusCard, focusFirstInColumn, tasksByColumn]
+  );
+
+  const onEmptyKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>, columnIndex: number) => {
+      switch (event.key) {
+        case "ArrowRight":
+          event.preventDefault();
+          focusFirstInColumn(columnIndex + 1);
+          break;
+        case "ArrowLeft":
+          event.preventDefault();
+          focusFirstInColumn(columnIndex - 1);
+          break;
+        case "Home":
+          event.preventDefault();
+          focusFirstInColumn(0);
+          break;
+        case "End":
+          event.preventDefault();
+          focusFirstInColumn(columnConfig.length - 1);
+          break;
+        default:
+          break;
+      }
+    },
+    [focusFirstInColumn]
+  );
+
+  useEffect(() => {
+    if (isLoading || didInitialFocus.current) return;
+    if (document.activeElement && document.activeElement !== document.body) return;
+    if (focusFirstAvailable()) {
+      didInitialFocus.current = true;
+    }
+  }, [focusFirstAvailable, isLoading, tasksByColumn]);
+
   return (
-    <div className="min-h-screen bg-grid">
+    <main className="min-h-screen bg-grid" role="main">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pb-16 pt-6 md:px-8">
         {/* Header */}
-        <header className="flex flex-col gap-4">
+        <header className="flex flex-col gap-4" aria-label="Mission Control header">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm uppercase tracking-[0.3em] text-muted">
@@ -200,18 +239,51 @@ export default function Dashboard() {
               <span className="text-sm text-white/80">{data?.haikuModel ?? "Haiku"}</span>
             </div>
           </div>
-          <div className="glass-card rounded-2xl px-4 py-3 text-sm text-white/80 shadow-soft-glow md:px-6">
+          {error && (
+            <div
+              className="glass-card rounded-2xl px-4 py-3 text-sm text-white/80 shadow-soft-glow md:px-6"
+              role="alert"
+              aria-live="assertive"
+            >
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <span className="text-xs uppercase tracking-[0.2em] text-muted">
+                    Sync Issue
+                  </span>
+                  <p className="text-sm text-white/90">{error}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={retry}
+                  aria-label="Retry status sync"
+                  className="rounded-full border border-white/20 px-4 py-2 text-xs uppercase tracking-[0.2em] text-white/90 hover:border-white/40"
+                >
+                  Retry Now
+                </button>
+              </div>
+            </div>
+          )}
+          <div
+            className="glass-card rounded-2xl px-4 py-3 text-sm text-white/80 shadow-soft-glow md:px-6"
+            role="status"
+            aria-live="polite"
+          >
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div className="flex flex-col gap-1">
                 <span className="text-xs uppercase tracking-[0.2em] text-muted">
                   Smart Update Interval
                 </span>
                 <span className="text-base font-medium text-white">{heartbeatLabel}</span>
+                {isRefreshing && (
+                  <span className="text-xs uppercase tracking-[0.18em] text-mc-ice">
+                    Syncing latest updates
+                  </span>
+                )}
               </div>
               <div className="flex flex-col items-start gap-1 md:items-end">
                 <span className="text-xs text-muted">Last sync</span>
                 <span className="text-base">
-                  {lastUpdated ? formatTime(lastUpdated) : "Connecting"}
+                  {lastUpdated ? formatTime(lastUpdated) : isLoading ? "Connecting" : "Idle"}
                 </span>
                 <span className="text-xs text-muted">
                   Next update {nextUpdate ? formatTime(nextUpdate) : "calculating"}
@@ -222,62 +294,39 @@ export default function Dashboard() {
         </header>
 
         {/* Kanban Board */}
-        <section className="flex-1 overflow-hidden">
+        <section
+          className="flex-1 overflow-hidden"
+          role="region"
+          aria-label="Automation workflow board"
+          aria-busy={isLoading || isRefreshing}
+        >
           <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide touch-scroll px-4 -mx-4 md:px-0 md:mx-0">
-            {columnConfig.map((column) => {
-              const columnTasks = getTasksByStatus(column.id);
-              return (
-                <div
-                  key={column.id}
-                  className="flex-shrink-0 w-72 min-w-72 md:w-80 md:min-w-80 flex flex-col snap-start first:ml-4 last:mr-4 md:first:ml-0 md:last:mr-0"
-                >
-                  {/* Column Header */}
-                  <div className={`rounded-t-3xl p-4 border-2 ${column.borderClass} ${column.bgClass}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{column.icon}</span>
-                        <div>
-                          <h2 className="text-xl font-semibold uppercase tracking-[0.15em] text-white">
-                            {column.title}
-                          </h2>
-                          <p className="text-xs uppercase tracking-[0.2em] text-muted">
-                            {column.subtitle}
-                          </p>
-                        </div>
-                      </div>
-                      <span className="bg-white/10 text-white/80 text-sm font-medium px-3 py-1 rounded-full min-w-[2.5rem] text-center">
-                        {columnTasks.length}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Column Body */}
-                  <div className={`flex-1 rounded-b-3xl border-2 border-t-0 ${column.borderClass} ${column.bgClass} p-4 min-h-[400px] max-h-[60vh] overflow-y-auto scrollbar-hide`}>
-                    <div className="flex flex-col gap-3">
-                      {columnTasks.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-32 text-center">
-                          <span className="text-4xl opacity-30 mb-2">💤</span>
-                          <p className="text-sm text-muted">Nothing here yet</p>
-                        </div>
-                      ) : (
-                        columnTasks.map((task) => (
-                          <TaskCard key={task.id} task={task} />
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {columnConfig.map((column, columnIndex) => (
+              <KanbanColumn
+                key={column.id}
+                column={column}
+                tasks={tasksByColumn[columnIndex] ?? []}
+                isLoading={isLoading}
+                columnIndex={columnIndex}
+                registerCardRef={registerCardRef}
+                registerEmptyRef={registerEmptyRef}
+                onCardKeyDown={onCardKeyDown}
+                onEmptyKeyDown={onEmptyKeyDown}
+              />
+            ))}
           </div>
         </section>
 
         {/* System Monitoring */}
         {data?.systemHealth && data.systemHealth.length > 0 && (
-          <section className="glass-card rounded-3xl p-4 md:p-6">
+          <section
+            className="glass-card rounded-3xl p-4 md:p-6"
+            role="region"
+            aria-label="System monitoring"
+          >
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-2xl">🔍</span>
+                <span className="text-2xl" aria-hidden="true">🔍</span>
                 <div>
                   <h2 className="text-xl font-semibold uppercase tracking-[0.15em] text-white">
                     System Monitoring
@@ -291,19 +340,24 @@ export default function Dashboard() {
                 {data.systemHealth.length}
               </span>
             </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2" role="list">
               {data.systemHealth.map((item, index) => (
-                <div key={`health-${index}`} className={`glass-card rounded-2xl p-4 border-l-4 ${
-                  item.status === "issue" ? "border-l-mc-ember" : 
-                  item.status === "warning" ? "border-l-mc-amber" : 
-                  "border-l-mc-emerald"
-                }`}>
+                <div
+                  key={`health-${index}`}
+                  role="listitem"
+                  aria-label={`${item.name} status ${item.status}`}
+                  className={`glass-card rounded-2xl p-4 border-l-4 ${
+                    item.status === "issue" ? "border-l-mc-ember" : 
+                    item.status === "warning" ? "border-l-mc-amber" : 
+                    "border-l-mc-emerald"
+                  }`}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <span className={`status-dot ${statusStyles[item.status]}`} />
+                      <span className={`status-dot ${statusStyles[item.status]}`} aria-hidden="true" />
                       <span className="text-base font-medium text-white">{item.name}</span>
                     </div>
-                    <span className="text-lg">
+                    <span className="text-lg" aria-hidden="true">
                       {item.status === "issue" ? "🔥" : item.status === "warning" ? "⚠️" : "✅"}
                     </span>
                   </div>
@@ -315,7 +369,11 @@ export default function Dashboard() {
 
         {/* Live Integrations */}
         {data?.integrationNotes && Object.keys(data.integrationNotes).length > 0 && (
-          <section className="glass-card rounded-3xl p-4 md:p-6 text-sm text-white/80">
+          <section
+            className="glass-card rounded-3xl p-4 md:p-6 text-sm text-white/80"
+            role="region"
+            aria-label="Live integrations"
+          >
             <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <h2 className="text-lg font-semibold uppercase tracking-[0.15em] text-white">
                 Live Integrations
@@ -324,9 +382,9 @@ export default function Dashboard() {
                 Real-time data feeds
               </span>
             </div>
-            <div className="grid grid-cols-1 gap-3 text-base md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 text-base md:grid-cols-2 lg:grid-cols-3" role="list">
               {Object.entries(data.integrationNotes).map(([key, value]) => (
-                <div key={key} className="rounded-xl border border-white/10 bg-black/30 p-3">
+                <div key={key} className="rounded-xl border border-white/10 bg-black/30 p-3" role="listitem">
                   <p className="text-xs uppercase tracking-[0.2em] text-muted">
                     {key.replace(/([A-Z])/g, " $1")}
                   </p>
@@ -337,11 +395,14 @@ export default function Dashboard() {
           </section>
         )}
 
-        <footer className="flex flex-col items-start gap-2 text-xs text-muted md:flex-row md:items-center md:justify-between">
+        <footer
+          className="flex flex-col items-start gap-2 text-xs text-muted md:flex-row md:items-center md:justify-between"
+          aria-label="Usage hints"
+        >
           <span>Swipe left/right: Scheduled → Running → Complete • Touch-optimized</span>
           <span>Automation updates routed through Haiku for cost efficiency</span>
         </footer>
       </div>
-    </div>
+    </main>
   );
 }
