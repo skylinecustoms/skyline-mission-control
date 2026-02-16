@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import { formatTime } from "../lib/time";
-import { useSimpleStatus } from "../hooks/useSimpleStatus";
+import { useReliableStatus } from "../hooks/useReliableStatus";
 import KanbanColumn from "./KanbanColumn";
 import type { KanbanColumnConfig, Task } from "./kanbanTypes";
 import { statusStyles } from "./statusStyles";
@@ -36,16 +36,10 @@ const columnConfig: KanbanColumnConfig[] = [
 ];
 
 export default function Dashboard() {
-  const { data, error, isLoading, lastUpdated, nextUpdate, retry } = useSimpleStatus();
+  const { data, error, isLoading, lastUpdated, nextUpdate, retry } = useReliableStatus();
 
   const heartbeatLabel = useMemo(() => {
-    const now = new Date();
-    const hour = now.getHours();
-    const isWorking = hour >= 6 && hour < 23;
-    
-    return isWorking
-      ? "Sync every 15 minutes (00, 15, 30, 45)"
-      : "Overnight mode - reduced frequency";
+    return "Reliable sync every 15 minutes from page load";
   }, []);
 
   // Transform API data into kanban tasks
