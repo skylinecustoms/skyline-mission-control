@@ -40,7 +40,7 @@ export default function KanbanColumn({
 
   return (
     <div
-      className="flex-shrink-0 w-72 min-w-72 md:w-80 md:min-w-80 flex flex-col snap-start first:ml-4 last:mr-4 md:first:ml-0 md:last:mr-0"
+      className="flex-shrink-0 w-72 min-w-72 md:w-80 md:min-w-80 flex flex-col snap-center first:ml-8 last:mr-8 md:first:ml-0 md:last:mr-0"
       role="region"
       aria-labelledby={columnTitleId}
       aria-describedby={columnCountId}
