@@ -144,7 +144,7 @@ async function getRealCronJobs() {
       { name: "Memory Analysis - Review Required", nextRun: "Daily: 8:00 PM" },
       { name: "Memory Cleanup - Review Required", nextRun: "Daily: 8:05 PM" },
       { name: "Weekly P&L Report", nextRun: "Mon: 8:30 AM" },
-      { name: "Marketing Analysis", nextRun: "Tue: 8:30 AM" },
+      { name: "Complete Business & Marketing Brief", nextRun: "Tue: 8:30 AM" },
       { name: "QB Token Refresh", nextRun: "Every 2h" }
     ];
   }
