@@ -39,7 +39,7 @@ export default function Dashboard() {
   const { data, error, isLoading, lastUpdated, nextUpdate, retry } = useReliableStatus();
 
   const heartbeatLabel = useMemo(() => {
-    return "Reliable sync every 15 minutes from page load";
+    return "Sync every 15 minutes (11:00, 11:15, 11:30, 11:45)";
   }, []);
 
   // Transform API data into kanban tasks

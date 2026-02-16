@@ -22,6 +22,25 @@ export const useReliableStatus = () => {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
 
+  const getNextRoundTime = (): Date => {
+    const now = new Date();
+    const minutes = now.getMinutes();
+    const seconds = now.getSeconds();
+    const ms = now.getMilliseconds();
+    
+    // Find next 15-minute mark (00, 15, 30, 45)
+    const nextInterval = Math.ceil(minutes / 15) * 15;
+    
+    const nextTime = new Date();
+    if (nextInterval >= 60) {
+      nextTime.setHours(now.getHours() + 1, 0, 0, 0);
+    } else {
+      nextTime.setMinutes(nextInterval, 0, 0);
+    }
+    
+    return nextTime;
+  };
+
   const fetchStatus = async (): Promise<void> => {
     if (!mountedRef.current) return;
     
@@ -48,8 +67,8 @@ export const useReliableStatus = () => {
       setError(null);
       setLastUpdated(new Date(payload.updatedAt));
       
-      // Calculate next update time (15 minutes from now)
-      const nextTime = new Date(now.getTime() + (15 * 60 * 1000));
+      // Calculate next round 15-minute interval
+      const nextTime = getNextRoundTime();
       setNextUpdate(nextTime);
       setIsLoading(false);
       
@@ -65,8 +84,7 @@ export const useReliableStatus = () => {
       setIsLoading(false);
       
       // Still set next update even on error
-      const now = new Date();
-      const nextTime = new Date(now.getTime() + (15 * 60 * 1000));
+      const nextTime = getNextRoundTime();
       setNextUpdate(nextTime);
     }
   };
@@ -77,27 +95,58 @@ export const useReliableStatus = () => {
   };
 
   useEffect(() => {
-    console.log(`[${new Date().toLocaleTimeString()}] Starting reliable status polling...`);
+    const getNextRoundTimeLocal = (): Date => {
+      const now = new Date();
+      const minutes = now.getMinutes();
+      
+      // Find next 15-minute mark (00, 15, 30, 45)
+      const nextInterval = Math.ceil(minutes / 15) * 15;
+      
+      const nextTime = new Date();
+      if (nextInterval >= 60) {
+        nextTime.setHours(now.getHours() + 1, 0, 0, 0);
+      } else {
+        nextTime.setMinutes(nextInterval, 0, 0);
+      }
+      
+      return nextTime;
+    };
+
+    console.log(`[${new Date().toLocaleTimeString()}] Starting round-interval status polling...`);
     
     mountedRef.current = true;
     
     // Initial fetch immediately
     void fetchStatus();
     
-    // Set up interval for every 15 minutes (900,000 ms)
-    intervalRef.current = setInterval(() => {
-      if (mountedRef.current) {
-        void fetchStatus();
-      } else {
-        console.log('Component unmounted, skipping fetch');
-      }
-    }, 15 * 60 * 1000);
+    // Calculate milliseconds until next round 15-minute mark
+    const now = new Date();
+    const nextRound = getNextRoundTimeLocal();
+    const msUntilNext = nextRound.getTime() - now.getTime();
     
-    console.log(`[${new Date().toLocaleTimeString()}] Polling interval set for every 15 minutes`);
+    console.log(`[${now.toLocaleTimeString()}] Next round interval in ${Math.round(msUntilNext/1000/60)} minutes at ${nextRound.toLocaleTimeString()}`);
+    
+    // Set timeout to sync with round intervals
+    const timeoutId = setTimeout(() => {
+      if (!mountedRef.current) return;
+      
+      console.log(`[${new Date().toLocaleTimeString()}] Syncing to round interval - fetching status`);
+      void fetchStatus();
+      
+      // Now start regular 15-minute intervals
+      intervalRef.current = setInterval(() => {
+        if (mountedRef.current) {
+          console.log(`[${new Date().toLocaleTimeString()}] Regular 15-minute interval - fetching status`);
+          void fetchStatus();
+        }
+      }, 15 * 60 * 1000);
+      
+    }, msUntilNext);
 
     return () => {
       console.log(`[${new Date().toLocaleTimeString()}] Cleaning up status polling...`);
       mountedRef.current = false;
+      clearTimeout(timeoutId);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
