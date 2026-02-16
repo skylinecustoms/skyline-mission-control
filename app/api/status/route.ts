@@ -152,8 +152,7 @@ async function getRealCronJobs() {
       { name: "System Health Check", nextRun: "Daily: 6:30 AM" },
       { name: "Daily Brief", nextRun: "Daily: 7:00 AM" },
       { name: "Complete Business & Marketing Brief", nextRun: "Tue: 8:30 AM" },
-      { name: "Memory Analysis - Review Required", nextRun: "Daily: 8:00 PM" },
-      { name: "Memory Cleanup - Review Required", nextRun: "Daily: 8:05 PM" },
+      { name: "Memory Review & Cleanup - Review Required", nextRun: "Daily: 8:00 PM" },
       { name: "Weekly P&L Report", nextRun: "Mon: 8:30 AM" },
       { name: "QB Token Refresh", nextRun: "Every 2h" }
     ];
@@ -169,6 +168,7 @@ async function getCurrentTasks() {
   tasks.push("🔧 15-minute sync intervals active"); 
   tasks.push("🍎 Apple Calendar date verification");
   tasks.push("🛡️ Self-healing automation system");
+  tasks.push("🧠 Combined memory review & cleanup task");
   tasks.push("📊 Live data pipeline monitoring");
   
   // Check if it's business hours for additional tasks

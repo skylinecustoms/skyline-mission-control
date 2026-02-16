@@ -299,7 +299,7 @@ export default function Dashboard() {
           aria-label="Automation workflow board"
           aria-busy={isLoading}
         >
-          <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide touch-scroll px-4 -mx-4 md:px-0 md:mx-0">
+          <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide touch-scroll px-6 -mx-6 md:px-0 md:mx-0">
             {columnConfig.map((column, columnIndex) => (
               <KanbanColumn
                 key={column.id}
