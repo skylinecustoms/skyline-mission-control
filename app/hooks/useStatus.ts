@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getPollingIntervalMs, getPollingWindow } from "../lib/time";
+import { getPollingIntervalMs, getPollingWindow, getNextRoundInterval } from "../lib/time";
 
 export type StatusResponse = {
   updatedAt: string;
@@ -78,11 +78,23 @@ export const useStatus = (options: UseStatusOptions = {}): UseStatusResult => {
   }, []);
 
   const scheduleNextPoll = useCallback((now: Date) => {
-    const intervalMs = getPollingIntervalMs(now);
-    setNextUpdate(new Date(now.getTime() + intervalMs));
-    timeoutRef.current = setTimeout(() => {
-      fetchStatusRef.current?.({ isManualRetry: false });
-    }, intervalMs);
+    const isWorking = getPollingWindow(now) === "working";
+    
+    if (isWorking) {
+      // Use round 15-minute intervals during working hours
+      const intervalMs = getNextRoundInterval();
+      setNextUpdate(new Date(now.getTime() + intervalMs));
+      timeoutRef.current = setTimeout(() => {
+        fetchStatusRef.current?.({ isManualRetry: false });
+      }, intervalMs);
+    } else {
+      // Use 3-hour intervals overnight
+      const intervalMs = 3 * 60 * 60 * 1000;
+      setNextUpdate(new Date(now.getTime() + intervalMs));
+      timeoutRef.current = setTimeout(() => {
+        fetchStatusRef.current?.({ isManualRetry: false });
+      }, intervalMs);
+    }
   }, []);
 
   const fetchStatus = useCallback(
