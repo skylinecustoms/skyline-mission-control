@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import { formatTime } from "../lib/time";
-import { useStatus } from "../hooks/useStatus";
+import { useSimpleStatus } from "../hooks/useSimpleStatus";
 import KanbanColumn from "./KanbanColumn";
 import type { KanbanColumnConfig, Task } from "./kanbanTypes";
 import { statusStyles } from "./statusStyles";
@@ -36,13 +36,17 @@ const columnConfig: KanbanColumnConfig[] = [
 ];
 
 export default function Dashboard() {
-  const { data, error, isLoading, isRefreshing, lastUpdated, nextUpdate, windowLabel, retry } = useStatus();
+  const { data, error, isLoading, lastUpdated, nextUpdate, retry } = useSimpleStatus();
 
   const heartbeatLabel = useMemo(() => {
-    return windowLabel === "working"
-      ? "Working hours sync every 15 minutes (00, 15, 30, 45)"
-      : "Overnight sync every 3 hours";
-  }, [windowLabel]);
+    const now = new Date();
+    const hour = now.getHours();
+    const isWorking = hour >= 6 && hour < 23;
+    
+    return isWorking
+      ? "Sync every 15 minutes (00, 15, 30, 45)"
+      : "Overnight mode - reduced frequency";
+  }, []);
 
   // Transform API data into kanban tasks
   const tasks = useMemo(() => {
@@ -274,11 +278,6 @@ export default function Dashboard() {
                   Smart Update Interval
                 </span>
                 <span className="text-base font-medium text-white">{heartbeatLabel}</span>
-                {isRefreshing && (
-                  <span className="text-xs uppercase tracking-[0.18em] text-mc-ice">
-                    Syncing latest updates
-                  </span>
-                )}
               </div>
               <div className="flex flex-col items-start gap-1 md:items-end">
                 <span className="text-xs text-muted">Last sync</span>
@@ -298,7 +297,7 @@ export default function Dashboard() {
           className="flex-1 overflow-hidden"
           role="region"
           aria-label="Automation workflow board"
-          aria-busy={isLoading || isRefreshing}
+          aria-busy={isLoading}
         >
           <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide touch-scroll px-4 -mx-4 md:px-0 md:mx-0">
             {columnConfig.map((column, columnIndex) => (
