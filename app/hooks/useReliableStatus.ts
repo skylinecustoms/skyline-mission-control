@@ -95,58 +95,24 @@ export const useReliableStatus = () => {
   };
 
   useEffect(() => {
-    const getNextRoundTimeLocal = (): Date => {
-      const now = new Date();
-      const minutes = now.getMinutes();
-      
-      // Find next 15-minute mark (00, 15, 30, 45)
-      const nextInterval = Math.ceil(minutes / 15) * 15;
-      
-      const nextTime = new Date();
-      if (nextInterval >= 60) {
-        nextTime.setHours(now.getHours() + 1, 0, 0, 0);
-      } else {
-        nextTime.setMinutes(nextInterval, 0, 0);
-      }
-      
-      return nextTime;
-    };
-
-    console.log(`[${new Date().toLocaleTimeString()}] Starting round-interval status polling...`);
+    console.log(`[${new Date().toLocaleTimeString()}] Starting simple status polling...`);
     
     mountedRef.current = true;
     
     // Initial fetch immediately
     void fetchStatus();
     
-    // Calculate milliseconds until next round 15-minute mark
-    const now = new Date();
-    const nextRound = getNextRoundTimeLocal();
-    const msUntilNext = nextRound.getTime() - now.getTime();
-    
-    console.log(`[${now.toLocaleTimeString()}] Next round interval in ${Math.round(msUntilNext/1000/60)} minutes at ${nextRound.toLocaleTimeString()}`);
-    
-    // Set timeout to sync with round intervals
-    const timeoutId = setTimeout(() => {
-      if (!mountedRef.current) return;
-      
-      console.log(`[${new Date().toLocaleTimeString()}] Syncing to round interval - fetching status`);
-      void fetchStatus();
-      
-      // Now start regular 15-minute intervals
-      intervalRef.current = setInterval(() => {
-        if (mountedRef.current) {
-          console.log(`[${new Date().toLocaleTimeString()}] Regular 15-minute interval - fetching status`);
-          void fetchStatus();
-        }
-      }, 15 * 60 * 1000);
-      
-    }, msUntilNext);
+    // Simple interval every 15 minutes - no complex timing
+    intervalRef.current = setInterval(() => {
+      if (mountedRef.current) {
+        console.log(`[${new Date().toLocaleTimeString()}] 15-minute interval - fetching status`);
+        void fetchStatus();
+      }
+    }, 15 * 60 * 1000); // 15 minutes = 900,000 milliseconds
 
     return () => {
       console.log(`[${new Date().toLocaleTimeString()}] Cleaning up status polling...`);
       mountedRef.current = false;
-      clearTimeout(timeoutId);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;

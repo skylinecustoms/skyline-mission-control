@@ -102,8 +102,8 @@ async function getRealCronJobs() {
       { name: "System Health Check", nextRun: "Daily: 6:30 AM" },
       { name: "Daily Brief", nextRun: "Daily: 7:00 AM" },
       { name: "Complete Business & Marketing Brief", nextRun: "Tue: 8:30 AM" },
-      { name: "Memory Analysis - Review Required", nextRun: "Daily: 8:00 PM" },
-      { name: "Memory Cleanup - Review Required", nextRun: "Daily: 8:05 PM" },
+      { name: "Memory Review & Cleanup - Review Required", nextRun: "Daily: 8:00 PM" },
+      { name: "Weekly P&L Report", nextRun: "Mon: 8:30 AM" },
       { name: "QB Token Refresh", nextRun: "Every 2h" }
     ];
     
@@ -147,9 +147,10 @@ async function getRealCronJobs() {
     
   } catch (error) {
     // Return known important jobs as fallback
+    // Return current actual schedule - FIXED VERSION
     return [
       { name: "Apple Calendar Sync", nextRun: "Daily: 6:00 AM" },
-      { name: "System Health Check", nextRun: "Daily: 6:30 AM" },
+      { name: "System Health Check", nextRun: "Daily: 6:30 AM" },  
       { name: "Daily Brief", nextRun: "Daily: 7:00 AM" },
       { name: "Complete Business & Marketing Brief", nextRun: "Tue: 8:30 AM" },
       { name: "Memory Review & Cleanup - Review Required", nextRun: "Daily: 8:00 PM" },
