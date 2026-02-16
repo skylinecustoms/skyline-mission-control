@@ -141,8 +141,8 @@ async function getRealCronJobs() {
     // Return known important jobs as fallback
     return [
       { name: "Daily Brief", nextRun: "Daily: 7:00 AM" },
-      { name: "Memory Cleanse - Optimization", nextRun: "Daily: 8:00 PM" },
-      { name: "Memory Cleanse - Cleanup", nextRun: "Daily: 8:05 PM" },
+      { name: "Memory Analysis - Review Required", nextRun: "Daily: 8:00 PM" },
+      { name: "Memory Cleanup - Review Required", nextRun: "Daily: 8:05 PM" },
       { name: "Weekly P&L Report", nextRun: "Mon: 8:30 AM" },
       { name: "Marketing Analysis", nextRun: "Tue: 8:30 AM" },
       { name: "QB Token Refresh", nextRun: "Every 2h" }
