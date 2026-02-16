@@ -211,7 +211,7 @@ export async function GET() {
     getCompletedToday()
   ]);
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     updatedAt: now.toISOString(),
     haikuModel: "Claude Sonnet 4 (Cost-Optimized)",
     activeAutomations,
@@ -220,11 +220,22 @@ export async function GET() {
     systemHealth: systemHealth,
     integrationNotes: {
       currentFix: "Deployed bulletproof 15-min polling system",
-      apiIssue: "Fixed Vercel serverless → local OpenClaw Gateway connection",
+      apiIssue: "Fixed Vercel serverless → local OpenClaw Gateway connection", 
       syncSchedule: "10:00, 10:15, 10:30, 10:45 AM (every 15 min)",
       composioFramework: "Gmail, Sheets, Calendly automation ready",
       appleCalendarSync: "Prevents cron date calculation bugs",
-      emergencySystem: "P&L + Daily Brief backup triggers active"
+      emergencySystem: "P&L + Daily Brief backup triggers active",
+      deployTime: now.toLocaleTimeString("en-US", { timeZone: "America/New_York" }),
+      cacheKey: Date.now().toString()
     }
   });
+
+  // Add aggressive no-cache headers to prevent Vercel caching
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+  response.headers.set('Pragma', 'no-cache');
+  response.headers.set('Expires', '0');
+  response.headers.set('Surrogate-Control', 'no-store');
+  response.headers.set('Vercel-CDN-Cache-Control', 'no-store');
+
+  return response;
 }
